@@ -1,8 +1,10 @@
-import SocketServer
 # coding: utf-8
-
+import SocketServer
+import os
+import mimetypes
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
-# 
+# Copyright 2015 Valerie Sawyer
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -28,12 +30,32 @@ import SocketServer
 
 
 class MyWebServer(SocketServer.BaseRequestHandler):
-    
+    statusLine = ""
     def handle(self):
-        self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        self.request.sendall("OK")
-
+        self.data = self.request.recv(1024).strip()     
+        totalRequest = self.data.splitlines()
+        requestLine = totalRequest[0].split()
+        if requestLine[1].endswith("/"):
+            path = os.path.abspath("www" + requestLine[1] + "index.html")
+        elif requestLine[1].endswith("p"):
+            path = os.path.abspath("www" + requestLine[1] + "/index.html")
+        else:
+            path = os.path.abspath("www" + requestLine[1])
+        if os.path.isfile(path) and os.path.abspath("www") in os.path.realpath(path):
+            mimetype, _ = mimetypes.guess_type(path) 
+            contentType = "Content-Type: " + mimetype + "\r\n\n"
+            try:
+                file = open(path, 'r')
+            except IOError:
+                statusLine = "HTTP/1.1 404 Not Found"
+                self.request.sendall(statusLine)  
+            statusLine = "HTTP/1.1 200 OK\r\n"
+            self.request.sendall(statusLine + contentType + file.read())
+            file.close()
+        else:
+            statusLine = "HTTP/1.1 404 Not Found"
+            self.request.sendall(statusLine)
+            
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
 
